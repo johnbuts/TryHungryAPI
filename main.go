@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
@@ -17,22 +18,22 @@ import (
 var client *mongo.Client
 
 type Order struct { //used to convert our given json and convert to something we can use
-	ID               primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	Date             string             `json:"date,omitempty" bson:"date,omitempty"`
-	Order_number     string             `json:"order_number,omitempty" bson:"order_number,omitempty"`
-	Chef_id          string             `json:"chef_id,omitempty" bson:"chef_id,omitempty"`
-	Experience_name  string             `json:"Experience_name,omitempty" bson:"Experience_name,omitempty"`
-	Experience_id    string             `json:"Experience_id,omitempty" bson:"Experience_id,omitempty"`
-	Head_count       string             `json:"Head_count,omitempty" bson:"Head_count,omitempty"`
-	Chef_name        string             `json:"Chef_name,omitempty" bson:"Chef_name,omitempty"`
-	Chef_email       string             `json:"Chef_email,omitempty" bson:"Chef_email,omitempty"`
-	Chef_experiences *Experience        `json:"Chef_experience,omitempty" bson:"Chef_experience,omitempty"`
+	ID                   primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
+	Date                 string             `json:"date,omitempty" bson:"date,omitempty"`
+	Order_number         string             `json:"order_number,omitempty" bson:"order_number,omitempty"`
+	Chef_id              string             `json:"chef_id,omitempty" bson:"chef_id,omitempty"`
+	Experience_name      string             `json:"Experience_name,omitempty" bson:"Experience_name,omitempty"`
+	Experience_id        string             `json:"Experience_id,omitempty" bson:"Experience_id,omitempty"`
+	Head_count           string             `json:"Head_count,omitempty" bson:"Head_count,omitempty"`
+	Chef_name            string             `json:"Chef_name,omitempty" bson:"Chef_name,omitempty"`
+	Chef_email           string             `json:"Chef_email,omitempty" bson:"Chef_email,omitempty"`
+	Chef_experience_time string             `json:"Chef_experience_time,omitempty" bson:"Chef_experience_time,omitempty"`
 }
 
-type Experience struct {
-	Time        string `json:"Time,omitempty" bson:"Time,omitempty"`               //making at a number between 9 and 17, (9 AM to 5 PM)
-	Experiences string `json:"Experiences,omitempty" bson:"Experiences,omitempty"` //making it a string seperated by commas
-}
+// type Experience struct {
+// 	Time        string `json:"Time,omitempty" bson:"Time,omitempty"`               //making at a number between 9 and 17, (9 AM to 5 PM)
+// 	Experiences string `json:"Experiences,omitempty" bson:"Experiences,omitempty"` //making it a string seperated by commas
+// }
 
 func main() {
 
@@ -66,6 +67,8 @@ func PostOrderEndpoint(w http.ResponseWriter, r *http.Request) { //getting the d
 	w.Header().Set("Content-Type", "application/json")                   //response type, the type that the person asking for data will expect most likley
 	orderCollection := client.Database("myDataBase").Collection("Order") //getting our collection
 	var order Order
+	var orders []Order
+	//var orders []Order
 	json.NewDecoder(r.Body).Decode(&order)
 	//Check json format
 	if orderCollection == nil {
@@ -73,11 +76,45 @@ func PostOrderEndpoint(w http.ResponseWriter, r *http.Request) { //getting the d
 		log.Fatal(client)
 	}
 
-	insertion, err := orderCollection.InsertOne(context.TODO(), order) // inserting our order into the collection
+	time_string := order.Chef_experience_time
+	time, _ := strconv.Atoi(time_string)
+	//here we want to query our database so we can make sure no one else has the time that we want to insert
+	cursor, err := orderCollection.Find(context.TODO(), bson.M{}) //gets our cursor, with all of our data
 	if err != nil {
-		fmt.Println("Insertion Error")
+		fmt.Print("Error getting cursor")
+		log.Fatal(err)
 		return
 	}
+	defer cursor.Close(context.TODO()) //now that we have cursor we can sever connnection
+	for cursor.Next(context.TODO()) {  //iterating through cursor (our data in collection)
+		var ord Order //temp variable for each cursor that we store in []orders
+		err := cursor.Decode(&ord)
+		if err != nil {
+			fmt.Println("Decode Cursor Error")
+			log.Fatal(err)
+			return
+		}
+		orders = append(orders, ord) //appending our current cursor object to []orders
+	}
+	//now that we have a list we can work with, we can do the bonus properly pretty simply newOptions
+	for i := range orders {
+		curr_time_string := orders[i].Chef_experience_time
+		curr_time, _ := strconv.Atoi(curr_time_string)
+		if time == curr_time || time < 9 || time > 17 {
+			fmt.Println("Your time is invalid, or already reserved")
+			return
+		}
+
+	}
+
+	insertion, err := orderCollection.InsertOne(context.TODO(), order) // inserting our order into the collection
+
+	// if err != nil {
+	// 	fmt.Println("Insertion Error")
+	// 	log.Fatal(err)
+	// }
+
+	//fmt.Println(orders[1].Chef_experience_time)
 	json.NewEncoder(w).Encode(insertion) //responding to the http request
 
 }
@@ -104,6 +141,7 @@ func GetAllOrders(w http.ResponseWriter, r *http.Request) { //getting the data f
 		orders = append(orders, ord) //appending our current cursor object to []orders
 
 	}
+
 	json.NewEncoder(w).Encode(orders)
 
 }

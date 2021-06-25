@@ -75,7 +75,7 @@ func PostOrderEndpoint(w http.ResponseWriter, r *http.Request) { //getting the d
 		fmt.Println("Client is NULL")
 		log.Fatal(client)
 	}
-
+	name_str := order.Chef_name
 	time_string := order.Chef_experience_time
 	time, _ := strconv.Atoi(time_string)
 	//here we want to query our database so we can make sure no one else has the time that we want to insert
@@ -100,11 +100,15 @@ func PostOrderEndpoint(w http.ResponseWriter, r *http.Request) { //getting the d
 	for i := range orders {
 		curr_time_string := orders[i].Chef_experience_time
 		curr_time, _ := strconv.Atoi(curr_time_string)
-		if time == curr_time || time < 9 || time > 17 {
-			fmt.Println("Your time is invalid, or already reserved")
+		curr_name := orders[i].Chef_name
+		if time < 9 || time > 17 {
+			fmt.Println("Your time is invalid")
 			return
 		}
-
+		if curr_name == name_str && time == curr_time {
+			fmt.Println("You already have an experience for this time")
+			return
+		}
 	}
 
 	insertion, err := orderCollection.InsertOne(context.TODO(), order) // inserting our order into the collection

@@ -37,7 +37,7 @@ type Order struct { //used to convert our given json and convert to something we
 
 func main() {
 
-	loginClient := options.Client().ApplyURI("mongodb+srv://rgupta:C0lvinrun123@cluster0.74it6.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
+	loginClient := options.Client().ApplyURI("mongodb+srv://rgupta:PASSWORD@cluster0.74it6.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 	client, _ = mongo.Connect(context.TODO(), loginClient)
 	if client == nil {
 		fmt.Println("Client NUll in start")
